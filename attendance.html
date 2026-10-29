@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="fil"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FRIDAY Attendance</title>
+<style>body{font-family:sans-serif;margin:0;background:#0b1f3a;color:#222}.c{max-width:420px;margin:auto;padding:14px}.b{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px}
+.warn{background:#ffe08a;font-weight:700;text-align:center}video,canvas,img{width:100%;border-radius:10px;background:#000}input{width:100%;padding:12px;font-size:16px;box-sizing:border-box;margin:6px 0;text-transform:uppercase}
+button{width:100%;padding:13px;font-size:16px;font-weight:700;border:0;border-radius:10px;margin:4px 0;background:#1264d8;color:#fff}button.g{background:#1a8f4a}button.x{background:#888}small{color:#555}</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b1f3a"><link rel="apple-touch-icon" href="icon-192.png">
+</head><body><div class="c">
+<div class="b warn">⚠️ WALANG SELFIE, WALANG ATTENDANCE</div>
+<div class="b"><h3 style="margin:0 0 6px">FRIDAY Attendance</h3>
+<input id="sq" placeholder="🔍 Hanapin ang pangalan mo" oninput="srch()"><div id="sr"></div>
+<input id="who" placeholder="ID Number o Pangalan">
+<video id="v" autoplay playsinline muted></video><canvas id="cv" style="display:none"></canvas><img id="pv" style="display:none">
+<button onclick="cam()">📷 Buksan ang Camera</button>
+<button class="g" onclick="snap('in')">✅ TIME IN (Selfie)</button><button class="g" onclick="snap('out')">🏁 TIME OUT (Selfie)</button>
+<div id="st" style="margin-top:8px;font-size:14px"></div></div>
+<div class="b"><h3 style="margin:0 0 6px">👥 Group Leader</h3><small>Buksan muna ang camera sa itaas.</small><select id="gsel" onchange="if(this.value){$('gc').value=this.value;roster()}" style="width:100%;padding:12px;font-size:16px;margin:6px 0"><option value="">Pumili ng grupo...</option></select>
+<input id="gc" placeholder="Group ID Number" inputmode="numeric"><button onclick="roster()">Ipakita ang mga ka-grupo</button><div id="gm"></div></div>
+<div class="b"><b>Mga naipadala na sa admin</b><div id="sent" style="font-size:13px;margin-top:6px">Wala pa.</div></div>
+<div class="b"><b>Naka-hold sa phone: <span id="qn">0</span></b><br><small>Awtomatikong ipapadala kapag may internet.</small><button class="x" onclick="flush()">Ipadala ngayon</button></div></div>
+<script>
+const FB_CONFIG={apiKey:'AIzaSyBuS4eiaqvrnPZXC6eypgCzuJlvDwyePI4',authDomain:'fridaypayroll-42dde.firebaseapp.com',projectId:'fridaypayroll-42dde',appId:'1:1045183817956:web:06784dc9f437aed56024f1'};
+const $=i=>document.getElementById(i),QK='fei_punchQ';let stream;
+const Q=()=>{try{return JSON.parse(localStorage.getItem(QK)||'[]')}catch(_){return[]}};
+const setQ=q=>{localStorage.setItem(QK,JSON.stringify(q));$('qn').textContent=q.length};
+const msg=t=>$('st').textContent=t;$('qn').textContent=Q().length;
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+async function cam(){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});$('v').srcObject=stream;$('v').style.display='block';$('pv').style.display='none';msg('Handa na ang camera.')}catch(e){msg('Hindi mabuksan ang camera. Payagan ang camera permission.')}}
+function loc(){return new Promise(r=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>r({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),()=>r(null),{enableHighAccuracy:true,timeout:15000,maximumAge:0}):r(null))}
+async function snap(type){const who=$('who').value.trim();if(!who){msg('Ilagay muna ang ID Number o Pangalan.');return}
+ if(!stream||!$('v').videoWidth){msg('Buksan muna ang camera.');return}
+ msg('Kinukuha ang location...');const at=new Date(),L=await loc(),cv=$('cv'),w=360,h=Math.round(w*$('v').videoHeight/$('v').videoWidth);cv.width=w;cv.height=h;
+ const x=cv.getContext('2d');x.drawImage($('v'),0,0,w,h);x.fillStyle='#000a';x.fillRect(0,h-34,w,34);x.fillStyle='#fff';x.font='12px sans-serif';
+ x.fillText(who.toUpperCase()+' · '+type.toUpperCase()+' · '+at.toLocaleString('en-PH'),6,h-20);x.fillText(L?L.lat.toFixed(5)+', '+L.lng.toFixed(5)+' (±'+L.acc+'m)':'WALANG LOCATION',6,h-6);
+ const photo=cv.toDataURL('image/jpeg',0.6);$('pv').src=photo;$('pv').style.display='block';$('v').style.display='none';
+ const q=Q();q.push({who:who.toUpperCase(),type,at:at.toISOString(),loc:L,photo,id:Date.now()+''});setQ(q);
+ msg('✔ Na-save sa phone ('+type.toUpperCase()+'). '+(L?'':'Walang location. ')+(navigator.onLine?'Ipinapadala...':'Walang internet; ipapadala kapag nagka-internet.'));flush()}
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function ensureFb(){const B='https://www.gstatic.com/firebasejs/10.12.2/';if(!window.firebase){await ld(B+'firebase-app-compat.js');await ld(B+'firebase-auth-compat.js');await ld(B+'firebase-firestore-compat.js')}
+ if(!firebase.apps.length){firebase.initializeApp(FB_CONFIG);await firebase.auth().signInAnonymously()}return firebase.firestore()}
+async function roster(){const c=$('gc').value.trim();if(!c)return;let r=null;
+ try{if(navigator.onLine&&FB_CONFIG.apiKey!=='PASTE'){const d=await (await ensureFb()).doc('roster/'+c).get();if(d.exists){r=d.data();localStorage.setItem('fei_r_'+c,JSON.stringify(r))}else{msg('Walang ganitong Group ID.');return}}}catch(e){}
+ if(!r){const D=await loadDir(),g=D&&D.groups.find(x=>x.code===c);if(g)r={group:g.name,site:g.site||'',members:D.emp.filter(e=>e.g===g.name).map(e=>({id:e.id,name:e.name}))}}
+ if(!r){try{r=JSON.parse(localStorage.getItem('fei_r_'+c))}catch(_){}}
+ if(!r){msg('Hindi makuha ang listahan. Kailangan ng internet sa unang beses.');return}
+ window.GR={code:c,r};msg('');
+ $('gm').innerHTML='<b>'+esc(r.group)+'</b><input id="gsite" placeholder="Site / Lugar (optional)" value="'+esc(r.site||'')+'">'+r.members.map((m,i)=>'<div style="display:flex;gap:6px;align-items:center;margin:5px 0"><input type="checkbox" class="gk" style="width:24px;height:24px;margin:0"><span style="flex:1;font-size:14px">'+esc(m.name)+'</span><select class="gs" style="padding:8px"><option>Present</option><option>Half Day</option><option>Absent</option></select></div>').join('')+'<textarea id="gt" rows="3" placeholder="Gagawin / Accomplishment ng grupo" style="width:100%;box-sizing:border-box;margin-top:6px;text-transform:uppercase"></textarea><small>✔ = kasama sa group selfie. Walang ✔ = hindi mare-record na present.</small><button class="g" onclick="gsnap()">📸 Group Selfie at Ipadala</button>'}
+function shotImg(t,L,w){const v=$('v'),cv=$('cv'),h=Math.round(w*v.videoHeight/v.videoWidth);cv.width=w;cv.height=h;const x=cv.getContext('2d');x.drawImage(v,0,0,w,h);x.fillStyle='#000a';x.fillRect(0,h-34,w,34);x.fillStyle='#fff';x.font='14px sans-serif';x.fillText(t,6,h-20);x.fillText(L?L.lat.toFixed(5)+', '+L.lng.toFixed(5)+' (±'+L.acc+'m)':'WALANG LOCATION',6,h-6);return cv.toDataURL('image/jpeg',0.6)}
+async function gsnap(){const R=window.GR;if(!R)return;if(!stream||!$('v').videoWidth){msg('Buksan muna ang camera sa itaas.');return}
+ const ck=[...document.querySelectorAll('.gk')],ss=[...document.querySelectorAll('.gs')];
+ const members=R.r.members.map((m,i)=>({id:m.id,name:m.name,in:ck[i].checked,status:ss[i].value}));
+ if(!members.some(m=>m.in)){msg('Lagyan ng ✔ ang mga kasama sa selfie.');return}
+ msg('Kinukuha ang location...');const at=new Date(),L=await loc(),photo=shotImg('GROUP '+R.r.group+' · '+at.toLocaleString('en-PH'),L,640);
+ const q=Q();q.push({g:1,code:R.code,group:R.r.group,at:at.toISOString(),loc:L,photo,members,task:($('gt').value||'').toUpperCase(),site:($('gsite').value||'').toUpperCase(),id:Date.now()+''});setQ(q);
+ msg('✔ Na-save sa phone. '+(L?'':'Walang location. ')+(navigator.onLine?'Ipinapadala...':'Ipapadala kapag nagka-internet.'));flush()}
+
+async function loadDir(){let D=null;try{if(navigator.onLine&&FB_CONFIG.apiKey!=='PASTE'){const d=await (await ensureFb()).doc('roster/_dir').get();if(d.exists){D=d.data();localStorage.setItem('fei_dir',JSON.stringify(D))}}}catch(e){}
+ if(!D){try{D=JSON.parse(localStorage.getItem('fei_dir'))}catch(_){}}window.DIR=D;fillGroups();return D}
+function fillGroups(){const D=window.DIR,s=$('gsel');if(!D||!s||s.options.length>1)return;D.groups.forEach(g=>{const o=document.createElement('option');o.value=g.code;o.textContent=g.name;s.appendChild(o)})}
+function srch(){const q=$('sq').value.toLowerCase().replace(/[^a-z0-9]/g,''),D=window.DIR,b=$('sr');b.innerHTML='';if(!q)return;
+ if(!D){b.textContent='Walang listahan pa. Kailangan ng internet sa unang beses.';return}
+ const r=D.emp.filter(e=>(e.name+e.id).toLowerCase().replace(/[^a-z0-9]/g,'').includes(q)).slice(0,8);if(!r.length){b.textContent='Walang nahanap.';return}
+ r.forEach(e=>{const x=document.createElement('button');x.className='x';x.textContent=e.name+' ('+e.id+')';x.onclick=()=>{$('who').value=e.id;$('sq').value='';b.innerHTML='';msg('Napili: '+e.name+'. Buksan ang camera at pindutin ang TIME IN o TIME OUT.')};b.appendChild(x)})}
+
+function sentList(){try{return JSON.parse(localStorage.getItem('fei_sent')||'[]')}catch(_){return[]}}
+function showSent(){const a=sentList();$('sent').innerHTML=a.length?a.map(x=>'✔ '+esc(x.n)+' · '+esc(x.t)+'<br><small>Kuha: '+esc(x.c)+' · Naipadala: '+esc(x.s)+'</small>').join('<hr style="border:0;border-top:1px solid #eee">'):'Wala pa.'}
+function logSent(p){const a=sentList();a.unshift({n:p.g?'GROUP '+p.group:p.who,t:p.g?'GROUP':p.type.toUpperCase(),c:new Date(p.at).toLocaleString('en-PH'),s:new Date().toLocaleString('en-PH')});localStorage.setItem('fei_sent',JSON.stringify(a.slice(0,8)));showSent()}
+let busy=false;
+function ld(s){return new Promise((ok,no)=>{const e=document.createElement('script');e.src=s;e.onload=ok;e.onerror=no;document.head.appendChild(e)})}
+async function flush(){if(busy||!Q().length||!navigator.onLine||FB_CONFIG.apiKey==='PASTE')return;busy=true;
+ try{const B='https://www.gstatic.com/firebasejs/10.12.2/';if(!window.firebase){await ld(B+'firebase-app-compat.js');await ld(B+'firebase-auth-compat.js');await ld(B+'firebase-firestore-compat.js')}
+  if(!firebase.apps.length){firebase.initializeApp(FB_CONFIG);await firebase.auth().signInAnonymously()}
+  const fs=firebase.firestore();let q=Q();
+  for(const p of q.slice()){await fs.collection(p.g?'gpunch':'punch').add(Object.assign(p.g?{code:p.code,group:p.group,at:p.at,loc:p.loc,photo:p.photo,members:p.members,task:p.task,site:p.site}:{who:p.who,type:p.type,at:p.at,loc:p.loc,photo:p.photo},{status:'pending',sent:firebase.firestore.FieldValue.serverTimestamp()}));q=Q().filter(z=>z.id!==p.id);setQ(q);logSent(p)}
+  msg('✔ Naipadala na sa admin para sa approval.')}catch(e){msg('Hindi pa naipadala; susubukan ulit. '+(e.message||''))}busy=false}
+addEventListener('online',()=>{flush();loadDir()});setInterval(flush,60000);flush();loadDir();showSent();
+</script></body></html>
